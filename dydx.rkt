@@ -30,37 +30,43 @@
       (eval expression)]
      [(list? expression)
       (let ([left (simplify (cadr expression))]
-            [right (simplify (caddr expression))]
+            [right (and (not (null? (cddr expression)))
+                        (simplify (caddr expression)))]
             [operator (car expression)])
-        (set! expression (list operator left right))
-        (case (car expression)
-          [(+ -)
-           (cond
-            [(eqv? 0 left) right]
-            [(eqv? 0 right) left]
-            [else expression])]
-          [(*)
-           ;; Handle multiplication by zero and one.
-           (cond
-            [(or (eqv? 0 left) (eqv? 0 right)) 0]
-            [(eqv? 1 left) right]
-            [(eqv? 1 right) left]
-            [else expression])]
-          [(/)
-           ;; Simplify divison by one. Throw an error on divison by zero.
-           (cond
-            [(eqv? 1 right) left]
-            [(eqv? 0 right) (error "Cannot divide by zero")]
-            [else expression])]
-          [(expt)
-           (cond
-            ;; 1^x, 0^x, x^1, x^0.
-            [(eqv? 1 left) 1]
-            [(eqv? 0 left) 0]
-            [(eqv? 1 right) left]
-            [(eqv? 0 right) 1]
-            [else expression])]
-          [else expression]))]
+        (if (eq? right #f)
+            ;; Functions can't be simplified any further.
+            (list operator left)
+            ;; Binary operators.
+            (begin
+              (set! expression (list operator left right))
+              (case (car expression)
+                [(+ -)
+                 (cond
+                  [(eqv? 0 left) right]
+                  [(eqv? 0 right) left]
+                  [else expression])]
+                [(*)
+                 ;; Handle multiplication by zero and one.
+                 (cond
+                  [(or (eqv? 0 left) (eqv? 0 right)) 0]
+                  [(eqv? 1 left) right]
+                  [(eqv? 1 right) left]
+                  [else expression])]
+                [(/)
+                 ;; Simplify divison by one. Throw an error on divison by zero.
+                 (cond
+                  [(eqv? 1 right) left]
+                  [(eqv? 0 right) (error "Cannot divide by zero")]
+                  [else expression])]
+                [(expt)
+                 (cond
+                  ;; 1^x, 0^x, x^1, x^0.
+                  [(eqv? 1 left) 1]
+                  [(eqv? 0 left) 0]
+                  [(eqv? 1 right) left]
+                  [(eqv? 0 right) 1]
+                  [else expression])]
+                [else expression]))))]
      [else
       expression])))
 

@@ -2,7 +2,7 @@
 
 (define common-derivatives
   '([sin . (cos x)]
-    [cos . (* (sin x) -1)]
+    [cos . (* -1 (sin x))]
     [log . (/ 1 x)]
     [tan . (/ 1 (expt (cos x) 2))]
     [cotan . (/ -1 (expt (sin x) 2))] ; not a real Scheme function
@@ -30,21 +30,25 @@
       (eval expression)]
      [(list? expression)
       (let ([left (simplify (cadr expression))]
-            [right (and (not (null? (cddr expression)))
-                        (simplify (caddr expression)))]
+            [right (if (not (null? (cddr expression)))
+                       (simplify (caddr expression))
+                       '())]
             [operator (car expression)])
-        (if (eq? right #f)
+        (if (null? right)
             ;; Functions can't be simplified any further.
             (list operator left)
             ;; Binary operators.
             (begin
               (set! expression (list operator left right))
               (case (car expression)
-                [(+ -)
+                ;; x +- 0, 0 + x.
+                [(+)
                  (cond
                   [(eqv? 0 left) right]
                   [(eqv? 0 right) left]
                   [else expression])]
+                [(-)
+                 (if (eqv? 0 right) left expression)]
                 [(*)
                  ;; Handle multiplication by zero and one.
                  (cond
@@ -72,13 +76,16 @@
 
 (define (derive argument function)
   (letrec ([-derive (lambda (function) (derive argument function))]
+           ;; Check if EXPR depends on the FUNCTION's ARGUMENT.
            [argument? (lambda (expr)
                         (if (list? expr)
                             (and (not (null? expr))
                                  (or (argument? (car expr))
                                      (argument? (cdr expr))))
                             (equal? expr argument)))]
+           ;; Check if EXPR is a constant expression.
            [constant? (lambda (expr) (not (argument? expr)))]
+           ;; Replace X with NEW-ARGUMENT in FUNCTION.
            [replace (lambda (function new-argument)
                       (cond
                        [(null? function) '()]
@@ -92,8 +99,8 @@
       [(list? function)
        (let ([operator (car function)]
              [left (cadr function)]
-             [right (or (and (not (null? (cddr function)))
-                             (caddr function))
+             [right (if (not (null? (cddr function)))
+                        (caddr function)
                         '())])
          (case operator
            ;; (f(x) +- g(x))' = f'(x) +- g'(x)

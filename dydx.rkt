@@ -1,7 +1,8 @@
 #lang racket
 
 (define common-derivatives
-  '([sin . (cos x)]
+  '([exp . (exp x)]
+    [sin . (cos x)]
     [cos . (* -1 (sin x))]
     [log . (/ 1 x)]
     [tan . (/ 1 (expt (cos x) 2))]
@@ -24,7 +25,10 @@
                [(list? expression)
                 (andmap constant? (cdr expression))]
                [else
-                #f]))])
+                #f]))]
+           [inverse?
+            (lambda (target expression)
+              (equal? (simplify expression) `(/ 1 ,(simplify target))))])
     (cond
      [(constant? expression)
       (eval expression)]
@@ -55,12 +59,15 @@
                   [(or (eqv? 0 left) (eqv? 0 right)) 0]
                   [(eqv? 1 left) right]
                   [(eqv? 1 right) left]
+                  ;; x * (1 / x) = 1
+                  [(or (inverse? left right) (inverse? right left)) 1]
                   [else expression])]
                 [(/)
                  ;; Simplify divison by one. Throw an error on divison by zero.
                  (cond
                   [(eqv? 1 right) left]
                   [(eqv? 0 right) (error "Cannot divide by zero")]
+                  [(inverse? left right) `(expt ,left 2)]
                   [else expression])]
                 [(expt)
                  (cond
@@ -124,8 +131,9 @@
              ;; (x^c)' = cx^(c - 1)
              [(and (argument? left) (constant? right))
               `(* ,(-derive left) (* ,right (expt ,left (- ,right 1))))]
-             ;; TODO: implement (x^x)'.
-             [else (error "x^x is currently not implemented")])]
+             ;; (x^x)' = (e^(x ln x))'.
+             [else
+              (-derive `(exp (* ,right (log ,left))))])]
            [else
             (if (assq operator common-derivatives)
                 (let ([function (cdr (assq operator common-derivatives))])

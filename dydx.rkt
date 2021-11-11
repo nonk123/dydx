@@ -100,15 +100,29 @@
                        [(list? function)
                         (cons (replace (car function) new-argument)
                               (replace (cdr function) new-argument))]
-                       [else function]))])
+                       [else function]))]
+           ;; Turn mathematical operator calls of form:
+           ;;   (* a b c d ...)
+           ;; Into:
+           ;;   (* a (* b (* c (* d ...))))
+           [associate (lambda (operator operands)
+                        (cond
+                         [(= 1 (length operands))
+                          (list operator operands)]
+                         [(= 2 (length operands))
+                          (cons operator operands)]
+                         [else
+                          (list operator (car operands)
+                                (associate operator (cdr operands)))]))])
     (simplify
      (cond
       [(list? function)
-       (let ([operator (car function)]
-             [left (cadr function)]
-             [right (if (not (null? (cddr function)))
-                        (caddr function)
-                        '())])
+       (let* ([operator (car function)]
+              [function (associate operator (cdr function))]
+              [left (cadr function)]
+              [right (if (not (null? (cddr function)))
+                         (caddr function)
+                         '())])
          (case operator
            ;; (f(x) +- g(x))' = f'(x) +- g'(x)
            [(+ -)
